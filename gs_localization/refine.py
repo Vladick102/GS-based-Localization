@@ -445,6 +445,7 @@ class PoseRefiner:
         iteration: int,
         max_iters: int,
         blurred_query: ImageTensor | None = None,
+        intrinsics=None,
     ) -> tuple[float, dict]:
         update = self.exp_map_se3(xi)
         pose = _compose_pose(update, base_pose)
@@ -454,6 +455,7 @@ class PoseRefiner:
             pose,
             target_width=target_width,
             target_height=target_height,
+            intrinsics=intrinsics,
         )
         target_height = len(query_image)
         target_width = len(query_image[0]) if target_height else 0
@@ -478,6 +480,7 @@ class PoseRefiner:
         initial_pose: list[list[float]],
         num_iters: int | None = None,
         debug_dir: Path | None = None,
+        intrinsics=None,
     ) -> tuple[PoseEstimate, float | None, dict[str, str]]:
 
         if self.renderer.gs_backend is None or not hasattr(
@@ -491,6 +494,7 @@ class PoseRefiner:
             initial_pose,
             num_iters=num_iters,
             debug_dir=debug_dir,
+            intrinsics=intrinsics,
         )
 
     def _refine_pose_fallback(
@@ -510,6 +514,7 @@ class PoseRefiner:
             0,
             iterations,
             blurred_query=first_blurred_query,
+            intrinsics=intrinsics,
         )
         best_loss = first_loss
         best_pose = first_debug["pose"]
@@ -534,6 +539,7 @@ class PoseRefiner:
                     iteration,
                     iterations,
                     blurred_query=iteration_blurred_query,
+                    intrinsics=intrinsics,
                 )
                 loss_minus, _ = self._loss_for_update(
                     query_image,
@@ -542,6 +548,7 @@ class PoseRefiner:
                     iteration,
                     iterations,
                     blurred_query=iteration_blurred_query,
+                    intrinsics=intrinsics,
                 )
                 gradient.append(
                     (loss_plus - loss_minus) / (2.0 * self.config.finite_difference_eps)
@@ -567,6 +574,7 @@ class PoseRefiner:
                 iteration,
                 iterations,
                 blurred_query=iteration_blurred_query,
+                intrinsics=intrinsics,
             )
             if math.isfinite(loss) and loss < best_loss:
                 best_loss = loss
@@ -679,6 +687,7 @@ class PoseRefiner:
         initial_pose: list[list[float]],
         num_iters: int | None = None,
         debug_dir: Path | None = None,
+        intrinsics=None,
     ) -> tuple[PoseEstimate, float | None, dict[str, str]]:
 
         iterations = num_iters or self.config.num_iters
@@ -705,6 +714,7 @@ class PoseRefiner:
                 pose_tensor,
                 target_width=query_tensor.shape[2],
                 target_height=query_tensor.shape[1],
+                intrinsics=intrinsics,
             )
             blurred_render = self._apply_gaussian_blur_tensor(
                 rendered_tensor, iteration, iterations

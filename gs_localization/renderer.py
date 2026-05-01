@@ -49,6 +49,7 @@ class GaussianSplattingRenderer:
         camera_pose: list[list[float]],
         target_width: int | None = None,
         target_height: int | None = None,
+        intrinsics: CameraIntrinsics | None = None,
     ) -> tuple[ImageTensor, list[list[float]]]:
         if self.gs_backend is None:
             raise RuntimeError(
@@ -58,6 +59,7 @@ class GaussianSplattingRenderer:
             camera_pose,
             target_width=target_width or self.width,
             target_height=target_height or self.height,
+            intrinsics=intrinsics,
         )
 
     def render_torch(
@@ -65,6 +67,7 @@ class GaussianSplattingRenderer:
         camera_pose: torch.Tensor,
         target_width: int | None = None,
         target_height: int | None = None,
+        intrinsics: CameraIntrinsics | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
 
         if self.gs_backend is None:
@@ -75,6 +78,7 @@ class GaussianSplattingRenderer:
             camera_pose,
             target_width=target_width or self.width,
             target_height=target_height or self.height,
+            intrinsics=intrinsics,
         )
 
     def _maybe_initialize_backend(self) -> None:
@@ -173,8 +177,10 @@ class _GaussianSplattingBackend:
         camera_pose: list[list[float]],
         target_width: int,
         target_height: int,
+        intrinsics: CameraIntrinsics | None = None,
     ):
-        if self.intrinsics is None:
+        intrinsics = intrinsics or self.intrinsics
+        if intrinsics is None:
             raise RuntimeError(
                 "Camera intrinsics are required for gaussian-splatting rendering."
             )
@@ -182,8 +188,8 @@ class _GaussianSplattingBackend:
         world_view_transform = torch.tensor(
             camera_pose, dtype=torch.float32, device="cuda"
         ).transpose(0, 1)
-        fovx = _focal_to_fov(self.intrinsics.fx, self.intrinsics.width)
-        fovy = _focal_to_fov(self.intrinsics.fy, self.intrinsics.height)
+        fovx = _focal_to_fov(intrinsics.fx, intrinsics.width)
+        fovy = _focal_to_fov(intrinsics.fy, intrinsics.height)
         projection = (
             self.getProjectionMatrix(
                 znear=0.01,
@@ -218,8 +224,9 @@ class _GaussianSplattingBackend:
         camera_pose: list[list[float]],
         target_width: int,
         target_height: int,
+        intrinsics: CameraIntrinsics | None = None,
     ) -> tuple[ImageTensor, list[list[float]]]:
-        camera = self._make_camera(camera_pose, target_width, target_height)
+        camera = self._make_camera(camera_pose, target_width, target_height, intrinsics)
         with torch.no_grad():
             output = self.gs_render(camera, self.model, self.pipeline, self.bg_color)
         rendered = output["render"].detach().clamp(0.0, 1.0).cpu()
@@ -242,8 +249,10 @@ class _GaussianSplattingBackend:
         camera_pose: torch.Tensor,
         target_width: int,
         target_height: int,
+        intrinsics: CameraIntrinsics | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        if self.intrinsics is None:
+        intrinsics = intrinsics or self.intrinsics
+        if intrinsics is None:
             raise RuntimeError(
                 "Camera intrinsics are required for gaussian-splatting rendering."
             )
@@ -265,8 +274,8 @@ class _GaussianSplattingBackend:
         )
         covariance_precomp = self.strip_symmetric(covariance_camera)
 
-        fovx = _focal_to_fov(self.intrinsics.fx, self.intrinsics.width)
-        fovy = _focal_to_fov(self.intrinsics.fy, self.intrinsics.height)
+        fovx = _focal_to_fov(intrinsics.fx, intrinsics.width)
+        fovy = _focal_to_fov(intrinsics.fy, intrinsics.height)
         viewmatrix = torch.eye(4, dtype=torch.float32, device="cuda")
         projmatrix = (
             self.getProjectionMatrix(

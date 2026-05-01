@@ -341,6 +341,7 @@ class LocalizationPipeline:
                 refinement_query,
                 init_pose.matrix,
                 debug_dir=self.config.debug_dir,
+                intrinsics=query.intrinsics,
             )
             if self._refinement_needs_retry(refined_pose, final_loss):
                 current_reference = init_pose.metadata.get("reference_image")
@@ -366,6 +367,7 @@ class LocalizationPipeline:
                             refinement_query,
                             candidate_pose.matrix,
                             debug_dir=self.config.debug_dir,
+                            intrinsics=query.intrinsics,
                         )
                     )
                     print(
@@ -479,6 +481,7 @@ class LocalizationPipeline:
             query.image,
             init_pose,
             debug_dir=self.config.debug_dir,
+            intrinsics=query.intrinsics,
         )
         return LocalizationResult(
             query_path=Path(query_image_path),
